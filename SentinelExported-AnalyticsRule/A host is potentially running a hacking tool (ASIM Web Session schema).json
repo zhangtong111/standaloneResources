@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/1f0221ac-cee3-4eae-801f-c725df4b9f27')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/1f0221ac-cee3-4eae-801f-c725df4b9f27')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2022-09-01-preview",
+      "properties": {
+        "queryFrequency": "PT15M",
+        "queryPeriod": "PT15M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "severity": "Medium",
+        "query": "let threatCategory=\"Hacking Tool\";\nlet knownUserAgentsIndicators = materialize(externaldata(UserAgent:string, Category:string)\n    [ @\"https://raw.githubusercontent.com/Azure/Azure-Sentinel/master/Sample%20Data/Feeds/UnusualUserAgents.csv\"] \n        with(format=\"csv\", ignoreFirstRecord=True));\nlet knownUserAgents=toscalar(knownUserAgentsIndicators | where Category==threatCategory | where isnotempty(UserAgent) | summarize make_list(UserAgent));\nlet customUserAgents=toscalar(_GetWatchlist(\"UnusualUserAgents\") | where SearchKey==threatCategory | extend UserAgent=column_ifexists(\"UserAgent\",\"\") | where isnotempty(UserAgent) | summarize make_list(UserAgent));\nlet fullUAList = array_concat(knownUserAgents,customUserAgents)\nimWebSession(httpuseragent_has_any=fullUAList)\n| project SrcIpAddr, Url, TimeGenerated,HttpUserAgent, SrcUsername\n",
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5M",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": null,
+            "groupByCustomDetails": null
+          }
+        },
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [],
+        "displayName": "A host is potentially running a hacking tool (ASIM Web Session schema)",
+        "enabled": false,
+        "description": "This rule identifies a web request with a user agent header known to belong to a hacking tool. This indicates a hacking tool is used on the host.<br>You can add custom hacking tool indicating User-Agent headers using a watchlist, for more information refer to the [UnusualUserAgents Watchlist](https://aka.ms/ASimUnusualUserAgentsWatchlist).<br><br>This rule uses the [Advanced SIEM Information Model (ASIM)](https://aka.ms/AboutASIM) and supports any web session source that complies with ASIM. To use this Analytics Rule, [deploy the Advanced SIEM information Model (ASIM)](https://aka.ms/DeployASIM).",
+        "alertRuleTemplateName": "3f0c20d5-6228-48ef-92f3-9ff7822c1954"
+      }
+    }
+  ]
+}
