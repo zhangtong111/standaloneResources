@@ -1,0 +1,50 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/303d53fd-b132-45bc-9dc9-8852122a64b9')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/303d53fd-b132-45bc-9dc9-8852122a64b9')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2022-09-01-preview",
+      "properties": {
+        "queryFrequency": "P1D",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "severity": "Medium",
+        "query": "AuditLogs \n| where OperationName in (\"Invite external user\", \"Bulk invite users - started (bulk)\",\"Invite external user with reset invitation status\")\n| extend InitiatedByUser = iff(isnotempty(tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)), \n  tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName), tostring(parse_json(tostring(InitiatedBy.app)).displayName))\n| where  InitiatedByUser has_any (\"live.com#\", \"#EXT#\")\n| extend parsedUser = iff(InitiatedByUser has \"live.com#\", tostring(split(InitiatedByUser, \"#\")[1]),tostring(split(InitiatedByUser, \"#EXT#\")[1])) ,  InvitationTime = TimeGenerated\n| join ( \nSigninLogs \n| where UserType == \"Guest\" and AppDisplayName == \"Microsoft Azure PowerShell\"\n| extend SigninTime = TimeGenerated\n) on $left.parsedUser == $right.UserPrincipalName\n| project InvitationTime, SigninTime, InitiatedByUser, OperationName, AppDisplayName , IPAddress, UserType\n",
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5M",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": null,
+            "groupByCustomDetails": null
+          }
+        },
+        "tactics": [
+          "InitialAccess",
+          "Persistence",
+          "Discovery"
+        ],
+        "techniques": [],
+        "displayName": "External guest invitations by default guest followed by Azure AD powershell signin",
+        "enabled": false,
+        "description": "By default guests have capability to invite more external guest user, who can do suspicious Azure AD enumeration. This detection will first look at guests \ninviting external guests users who are then logging via Azure AD powershell after accpeting invitation.\nRef : 'https://danielchronlund.com/2021/11/18/scary-azure-ad-tenant-enumeration-using-regular-b2b-guest-accounts/",
+        "alertRuleTemplateName": "acc4c247-aaf7-494b-b5da-17f18863878a"
+      }
+    }
+  ]
+}
