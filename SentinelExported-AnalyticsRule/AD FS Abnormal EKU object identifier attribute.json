@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/453da0a3-52bf-48b6-b75e-c016500441ca')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/453da0a3-52bf-48b6-b75e-c016500441ca')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2022-09-01-preview",
+      "properties": {
+        "queryFrequency": "PT1H",
+        "queryPeriod": "P1D",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "severity": "High",
+        "query": "// change the starttime value for a longer period of known OIDs\nlet starttime = 1d;\n// change the lookback value for a longer period of lookback for suspicious/abnormal\nlet lookback = 1h;\nlet OIDList = SecurityEvent\n| where TimeGenerated >= ago(starttime)\n| where EventSourceName == 'AD FS Auditing'\n| where EventID == 501\n| where EventData has '/eku'\n| extend OIDs = extract_all(@\"<Data>([\\d+\\.]+)</Data>\", EventData)\n| mv-expand OIDs\n| extend OID = tostring(OIDs)\n| extend OID_Length = strlen(OID)\n| project TimeGenerated, Computer, EventSourceName, EventID, OID, OID_Length, EventData\n;\nOIDList\n| where TimeGenerated >= ago(lookback)\n| join kind=leftanti (\nOIDList\n| where TimeGenerated between (ago(starttime) .. ago(lookback))\n| summarize by OID\n) on OID\n",
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "entityMappings": [
+          {
+            "entityType": "Host",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "Computer"
+              }
+            ]
+          }
+        ],
+        "templateVersion": "1.0.2",
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": [
+          "T1552"
+        ],
+        "displayName": "AD FS Abnormal EKU object identifier attribute",
+        "enabled": false,
+        "description": "This detection uses Security events from the \"AD FS Auditing\" provider to detect suspicious object identifiers (OIDs) as part EventID 501 and specifically part of the Enhanced Key Usage attributes.\nThis query checks to see if you have any new OIDs in the last hour that have not been seen in the previous day. New OIDs should be validated and OIDs that are very long, as indicated\nby the OID_Length field, could also be an indicator of malicious activity.\nIn order to use this query you need to enable AD FS auditing on the AD FS Server.\nReferences:\nhttps://www.microsoft.com/security/blog/2022/08/24/magicweb-nobeliums-post-compromise-trick-to-authenticate-as-anyone/\nhttps://docs.microsoft.com/windows-server/identity/ad-fs/troubleshooting/ad-fs-tshoot-logging\n",
+        "alertRuleTemplateName": "cfc1ae62-db63-4a3e-b88b-dc04030c2257"
+      }
+    }
+  ]
+}
