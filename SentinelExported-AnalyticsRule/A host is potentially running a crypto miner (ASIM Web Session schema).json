@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/4f5a652f-bec8-4112-8f7b-531ff30dfd75')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/4f5a652f-bec8-4112-8f7b-531ff30dfd75')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2022-09-01-preview",
+      "properties": {
+        "queryFrequency": "PT15M",
+        "queryPeriod": "PT15M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "eventGroupingSettings": {
+          "aggregationKind": "AlertPerResult"
+        },
+        "severity": "Medium",
+        "query": "let threatCategory=\"Cryptominer\";\nlet knownUserAgentsIndicators = materialize(externaldata(UserAgent:string, Category:string)\n    [ @\"https://raw.githubusercontent.com/Azure/Azure-Sentinel/master/Sample%20Data/Feeds/UnusualUserAgents.csv\"] \n        with(format=\"csv\", ignoreFirstRecord=True));\nlet knownUserAgents=toscalar(knownUserAgentsIndicators | where Category==threatCategory | where isnotempty(UserAgent) | summarize make_list(UserAgent));\nlet customUserAgents=toscalar(_GetWatchlist(\"UnusualUserAgents\") | where SearchKey==threatCategory | extend UserAgent=column_ifexists(\"UserAgent\",\"\") | where isnotempty(UserAgent) | summarize make_list(UserAgent));\nlet fullUAList = array_concat(knownUserAgents,customUserAgents)\nimWebSession(httpuseragent_has_any=fullUAList)\n| project SrcIpAddr, Url, TimeGenerated,HttpUserAgent, SrcUsername\n",
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5M",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": null,
+            "groupByCustomDetails": null
+          }
+        },
+        "tactics": [
+          "CommandAndControl"
+        ],
+        "techniques": [],
+        "displayName": "A host is potentially running a crypto miner (ASIM Web Session schema)",
+        "enabled": false,
+        "description": "This rule identifies a web request with a user agent header known to belong to a crypto miner. This indicates a crypto miner may have infected the client machine.<br>You can add custom crypto mining indicating User-Agent headers using a watchlist, for more information refer to the [UnusualUserAgents Watchlist](https://aka.ms/ASimUnusualUserAgentsWatchlist).<br><br>This rule uses the Advanced SIEM Information Model (ASIM) and supports any web session source that complies with ASIM. To use this Analytics Rule, deploy the [Advanced SIEM information Model (ASIM)](https://aka.ms/DeployASIM).",
+        "alertRuleTemplateName": "8cbc3215-fa58-4bd6-aaaa-f0029c351730"
+      }
+    }
+  ]
+}
