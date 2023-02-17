@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8d2677a1-dcf3-42b1-848b-a0a7055016d8')]",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/8d2677a1-dcf3-42b1-848b-a0a7055016d8')]",
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "kind": "Scheduled",
+      "apiVersion": "2022-09-01-preview",
+      "properties": {
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "severity": "Medium",
+        "query": "let aadFunc = (tableName:string){\ntable(tableName)\n| where AppDisplayName == \"GitHub.com\"\n| where ResultType == 0\n| summarize CountOfLocations = dcount(Location), Locations = make_set(Location), BurstStartTime = min(TimeGenerated), BurstEndTime = max(TimeGenerated) by UserPrincipalName, Type\n| where CountOfLocations > 1\n| extend timestamp = BurstStartTime, AccountCustomEntity = UserPrincipalName\n};\nlet aadSignin = aadFunc(\"SigninLogs\");\nlet aadNonInt = aadFunc(\"AADNonInteractiveUserSignInLogs\");\nunion isfuzzy=true aadSignin, aadNonInt\n",
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": false,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5M",
+            "matchingMethod": "AllEntities",
+            "groupByEntities": [],
+            "groupByAlertDetails": null,
+            "groupByCustomDetails": null
+          }
+        },
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "AccountCustomEntity"
+              }
+            ]
+          }
+        ],
+        "tactics": [
+          "CredentialAccess"
+        ],
+        "techniques": null,
+        "displayName": "GitHub Signin Burst from Multiple Locations",
+        "enabled": false,
+        "description": "This alerts when there Signin burst from multiple locations in GitHub (AAD SSO).",
+        "alertRuleTemplateName": "d3980830-dd9d-40a5-911f-76b44dfdce16"
+      }
+    }
+  ]
+}
